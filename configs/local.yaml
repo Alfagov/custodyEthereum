@@ -1,0 +1,53 @@
+#Server configuration
+server:
+  host: 0.0.0.0
+  port:
+    https: 8080
+    http: 7070
+  readtimeout: 10
+  writetimeout: 10
+  starthttp: true
+  debug: false
+  cors:
+    allowallorigins: true
+  basepath: "data/"
+  default-storage: "local"
+
+#SSL keys and cert path
+ssl:
+  keypath: "domain.key"
+  certpath: "domain.crt"
+
+jwt:
+  private-key: "access-private.pem"
+  public-key: "access-public.pem"
+
+
+
+logger:
+  routes:
+    events: "log_routes_events.log"
+    admin: "log_routes_admin.log"
+    auth: "log_routes_auth.log"
+    deck: "log_routes_deck.log"
+    game: "log_routes_game.log"
+    middleware: "log_routes_middleware.log"
+  nft: "log_nft_service.log"
+  blockchain: "log_blockchain_service.log"
+  kafka: "log_kafka_service.log"
+  matchmaking:
+    service: "log_matchmaking_service.log"
+    pool: "log_matchmaking_pool.log"
+  match:
+    casual: "log_match_casual.log"
+    bot: "log_match_bot.log"
+    private: "log_match_private.log"
+    hardcore: "log_match_hardcore.log"
+    manager: "log_match_manager.log"
+    service: "log_match_service.log"
+  websocket:
+    topic:
+      home: "log_websocket_topic_home.log"
+      match: "log_websocket_topic_match.log"
+  server: "log_server.log"
+
