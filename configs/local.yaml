@@ -10,7 +10,7 @@ server:
   debug: false
   cors:
     allowallorigins: true
-  basepath: "data/"
+  basepath: "./data"
   default-storage: "local"
 
 #SSL keys and cert path
@@ -20,7 +20,7 @@ ssl:
 
 jwt:
   private-key: "access-private.pem"
-  public-key: "access-public.pem"
+  public-key: "access-public.pub"
 
 
 

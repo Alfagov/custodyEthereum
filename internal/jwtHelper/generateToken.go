@@ -3,6 +3,7 @@ package jwtHelper
 import (
 	"custodyEthereum/configs"
 	"github.com/golang-jwt/jwt"
+	"log"
 	"os"
 	"time"
 )
@@ -18,6 +19,7 @@ type AccessTokenCustomClaims struct {
 var (
 	rootRole     = "root"
 	adminRole    = "admin"
+	userRole     = "user"
 	allowedRoles = []string{rootRole, adminRole}
 )
 
@@ -41,7 +43,8 @@ func GenerateAccessToken(isUser bool, role string) (string, error) {
 		},
 	}
 	//fmt.printf("Reading File\n")
-	signBytes, err := os.ReadFile(cfg.GetString("jwt.private_key"))
+	log.Println("Reading File", cfg.GetString("jwt.private-key"))
+	signBytes, err := os.ReadFile(cfg.GetString("jwt.private-key"))
 	if err != nil {
 		return "", err
 	}

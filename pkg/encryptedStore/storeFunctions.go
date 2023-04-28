@@ -1,89 +1,123 @@
 package encryptedStore
 
 import (
+	"crypto/rand"
 	"custodyEthereum/configs"
-	"encoding/hex"
+	"custodyEthereum/internal/models"
+	"encoding/base64"
 	"encoding/json"
-	secretbox "github.com/GoKillers/libsodium-go/cryptosecretbox"
-	"github.com/GoKillers/libsodium-go/randombytes"
+	"errors"
+	"github.com/awnumar/memguard"
+	"github.com/google/uuid"
 	"github.com/hashicorp/vault/shamir"
+	"golang.org/x/crypto/nacl/secretbox"
+	"io"
 	"os"
 )
 
-func EncryptKVStore(data map[string]string, key []byte) EncryptedKVStore {
-	encStore := EncryptedKVStore{Data: make(map[string][]byte)}
-	nonce := randombytes.RandomBytes(24)
-	encStore.Nonce = hex.EncodeToString(nonce)
-
-	for k, v := range data {
-		b := []byte(v)
-		ciphertext, err := secretbox.CryptoSecretBoxEasy(b, nonce, key)
-		if err != 1 {
-			panic(err)
-		}
-
-		encStore.Data[k] = ciphertext
+func generateRandomBytes(size int) ([]byte, error) {
+	rBytes := make([]byte, size)
+	_, err := io.ReadFull(rand.Reader, rBytes)
+	if err != nil {
+		return nil, err
 	}
-	return encStore
+	return rBytes, nil
 }
 
-func DecryptKVStore(encStore EncryptedKVStore, key []byte) map[string]string {
-	decryptedData := make(map[string]string)
-	nonce, _ := hex.DecodeString(encStore.Nonce)
-
-	for k, v := range encStore.Data {
-		plaintext, err := secretbox.CryptoSecretBoxOpenEasy(v, nonce, key)
-		if err != 1 {
-			panic(err)
-		}
-
-		decryptedData[k] = string(plaintext)
+func encrypt(plaintext []byte, key *[models.KeySize]byte) ([]byte, error) {
+	var nonce [models.NonceSize]byte
+	nonceBytes, err := generateRandomBytes(models.NonceSize)
+	if err != nil {
+		return nil, err
 	}
-	return decryptedData
+
+	copy(nonce[:], nonceBytes)
+
+	ciphertext := secretbox.Seal(nonce[:], plaintext, &nonce, key)
+	return ciphertext, nil
 }
 
-func SaveEncryptedKVStore(encStore EncryptedKVStore, name string) {
-	storeBytes, err := json.Marshal(encStore)
+func decrypt(ciphertext []byte, key *[models.KeySize]byte) ([]byte, error) {
+
+	var nonce [models.NonceSize]byte
+	copy(nonce[:], ciphertext[:models.NonceSize])
+
+	plaintext, ok := secretbox.Open(nil, ciphertext[models.NonceSize:], &nonce, key)
+	if !ok {
+		return nil, errors.New("decryption failed")
+	}
+	return plaintext, nil
+}
+
+func CreateNewBoxStore(name string, threshold int, total int, description string) [][]byte {
+
+	keyBytes, _ := generateRandomBytes(models.KeySize)
+	var key [models.KeySize]byte
+
+	copy(key[:], keyBytes)
+
+	store := models.StoreEntry{
+		ID:          uuid.New().String(),
+		Secrets:     []models.Secret{},
+		Description: description,
+	}
+
+	storeString, err := json.Marshal(store)
 	if err != nil {
 		panic(err)
 	}
 
-	path := configs.GlobalViper.GetString("server.basepath") + name + ".json"
+	encStore, err := encrypt(storeString, &key)
 
-	err = os.WriteFile(path, storeBytes, 0644)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func LoadEncryptedKVStore(storeName string) EncryptedKVStore {
-
-	path := configs.GlobalViper.GetString("server.basepath") + storeName + ".json"
-	storeBytes, err := os.ReadFile(path)
+	shares, err := shamir.Split(keyBytes, total, threshold)
 	if err != nil {
 		panic(err)
 	}
 
-	var encStore EncryptedKVStore
-	err = json.Unmarshal(storeBytes, &encStore)
-	if err != nil {
-		panic(err)
-	}
+	path := configs.GlobalViper.GetString("server.basepath") + "/" + name + ".json"
 
-	return encStore
-}
-
-func CreateNewStore(name string, threshold int, total int) [][]byte {
-	key := randombytes.RandomBytes(32)
-	data := map[string]string{}
-
-	encStore := EncryptKVStore(data, key)
-	SaveEncryptedKVStore(encStore, name)
-
-	shares, err := shamir.Split(key, threshold, total)
+	err = os.WriteFile(path, encStore, 0644)
 	if err != nil {
 		panic(err)
 	}
 
 	return shares
+}
+
+func OpenBoxStore(name string, key [models.KeySize]byte) (models.SafeStoreEntry, error) {
+
+	path := configs.GlobalViper.GetString("server.basepath") + name + ".json"
+	storeBytes, err := os.ReadFile(path)
+	if err != nil {
+		return models.SafeStoreEntry{}, err
+	}
+
+	decStoreString, err := decrypt(storeBytes, &key)
+	if err != nil {
+		return models.SafeStoreEntry{}, err
+	}
+
+	var unsafeEncStore models.StoreEntry
+	err = json.Unmarshal(decStoreString, &unsafeEncStore)
+	if err != nil || unsafeEncStore.ID == "" {
+		return models.SafeStoreEntry{}, err
+	}
+	safeEncStore := models.SafeStoreEntry{
+		ID:          unsafeEncStore.ID,
+		Secrets:     []models.SafeSecret{},
+		Description: unsafeEncStore.Description,
+	}
+	for _, secret := range unsafeEncStore.Secrets {
+		k, _ := base64.StdEncoding.DecodeString(secret.Data)
+		safeEncStore.Secrets = append(
+			safeEncStore.Secrets,
+			models.SafeSecret{
+				ID:          secret.ID,
+				Description: secret.Description,
+				Data:        memguard.NewBufferFromBytes(k),
+				Roles:       secret.Roles,
+			})
+	}
+
+	return safeEncStore, nil
 }

@@ -27,7 +27,7 @@ func initConfig(vp *viper.Viper) *viper.Viper {
 	vp.SetDefault("server.writeTimeout", 10)
 	vp.SetDefault("server.ssl_dis", false)
 	// Set default jwt
-	vp.SetDefault("jwt.accessprivkeypath", "access-private.pem")
+	vp.SetDefault("jwt.accessprivkeypath", "access-private.pem.pem")
 	vp.SetDefault("jwt.accesspubkeypath", "access-public.pem")
 
 	// Set SSL default
@@ -60,6 +60,7 @@ func initConfig(vp *viper.Viper) *viper.Viper {
 	vp.SetDefault("logger.websocket.topic.home", "log_websocket_topic_home.log")
 	vp.SetDefault("logger.websocket.topic.match", "log_websocket_topic_match.log")
 	vp.SetDefault("logger.server", "log_server.log")
+	vp.SetDefault("cloud-config", false)
 
 	//err = vp.ReadInConfig()
 	//if err != nil {

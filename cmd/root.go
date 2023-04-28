@@ -5,11 +5,13 @@ import (
 	"custodyEthereum/internal/jwtHelper"
 	"custodyEthereum/pkg/encryptedStore"
 	"custodyEthereum/pkg/server"
+	"encoding/base64"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -43,7 +45,7 @@ func init() {
 
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config_path", "./v1/configs/local.yaml", "config file (default is $HOME/v1/configs/local.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config_path", "./configs/local.yaml", "config file (default is $HOME/v1/configs/local.yaml)")
 	rootCmd.PersistentFlags().BoolVar(&sslFlag, "ssl_flag", false, "Disables SSL (default is false)")
 
 }
@@ -100,19 +102,31 @@ func startCustodyServer() {
 		}
 
 		//Create default storage
-		shares := encryptedStore.CreateNewStore(configs.GlobalViper.GetString("server.default-storage"), 3, 5)
+		shares := encryptedStore.CreateNewBoxStore(configs.GlobalViper.GetString("server.default-storage"), 3, 5, "")
+
+		var textShares []string
+		for _, share := range shares {
+			textShares = append(textShares, base64.StdEncoding.EncodeToString(share))
+		}
 
 		//Show credentials
+		log.Println("============================================================")
 		log.Println("Root token: " + rootToken)
-		log.Println("Default storage: " + configs.GlobalViper.GetString("server.default-storage"))
-		log.Println("Shares: ", shares)
+		log.Println("Default storage name: " + configs.GlobalViper.GetString("server.default-storage"))
+		for i, share := range textShares {
+			log.Println("Share " + strconv.Itoa(i) + ": " + share)
+		}
+		log.Println("============================================================")
 	}
 
 	r := gin.Default()
 
-	r.GET("initialize", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.Initialize())
+	r.GET("initialize", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.NewStore())
 
-	r.POST("unlock", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.Unlock())
+	r.POST("unlock", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.Unlock(false))
+	r.POST("reloadStore", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.Unlock(true))
+	r.POST("addSecret", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.AddSecret())
+
 	//r.POST("sign", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.Sign)
 	err = r.Run(":8080")
 }
