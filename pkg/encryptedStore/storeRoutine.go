@@ -67,6 +67,25 @@ func RunStoreRoutine(store *models.ServerStore) {
 				store.Mux.Unlock()
 
 			}
+
+		case sign := <-store.SignChannel:
+			store.Mux.Lock()
+
+			secretPath := sign.TransactionStoreName + "/" + sign.TransactionSecret
+
+			var sec *models.SafeSecret
+			for _, secret := range store.Store.Secrets {
+				if secret.Path == secretPath {
+					sec = secret
+					break
+				}
+			}
+
+			if sec == nil {
+				store.Mux.Unlock()
+				continue
+			}
+
 		}
 	}
 }

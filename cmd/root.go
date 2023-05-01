@@ -134,14 +134,14 @@ func startCustodyServer() {
 
 	r := gin.Default()
 
-	r.GET("initialize", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.NewStore())
+	r.GET("initialize", jwtHelper.JwtAuthGetRoleMiddleware(), s.NewStore())
 
 	r.POST("unlock", jwtHelper.JwtAuthGetRoleMiddleware(), s.Unlock(false))
 	r.POST("reloadStore", jwtHelper.JwtAuthGetRoleMiddleware(), s.Unlock(true))
 	r.POST("addSecret", jwtHelper.JwtAuthGetRoleMiddleware(), s.AddSecret())
 	r.POST("remSecret", jwtHelper.JwtAuthGetRoleMiddleware(), s.RemoveSecret())
 	r.POST("updSecret", jwtHelper.JwtAuthGetRoleMiddleware(), s.UpdateSecret())
+	//r.POST("signTransaction", jwtHelper.JwtAuthGetRoleMiddleware(), s.SignTransaction)
 
-	//r.POST("sign", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.Sign)
 	err = r.Run(":8080")
 }

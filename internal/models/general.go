@@ -48,6 +48,7 @@ type ServerStore struct {
 	Path          string
 	SafeKey       *memguard.Enclave
 	ActionChannel chan *StoreAction
+	SignChannel   chan *RequestSignTransaction
 	Roles         []string
 	Mux           sync.Mutex
 }
@@ -73,4 +74,12 @@ type ReqStoreAction struct {
 type UpdateStoreAction struct {
 	StoreName string `json:"storeName"`
 	Override  bool   `json:"override"`
+}
+
+type RequestSignTransaction struct {
+	TransactionData      string `json:"transactionData"`
+	TransactionAddress   string `json:"transactionAddress"`
+	TransactionContract  string `json:"transactionContract"`
+	TransactionStoreName string `json:"transactionStoreName"`
+	TransactionSecret    string `json:"transactionSecret"`
 }
