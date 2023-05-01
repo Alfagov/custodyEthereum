@@ -8,17 +8,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"log"
+	"sync"
 )
 
 type Server struct {
 	AvailableStores map[string]bool `json:"availableStores"`
 	Stores          map[string]*models.ServerStore
-	Users           []models.User                       `json:"users"`
-	Roles           []string                            `json:"roles"`
-	Secrets         []models.Secret                     `json:"secrets"`
-	RoleSecrets     map[string]map[string]models.Secret `json:"roleSecrets"`
-	ACL             map[string]map[string]models.Secret
+	Users           []models.User                            `json:"users"`
+	Roles           []string                                 `json:"roles"`
+	RoleSecrets     map[string]map[string]*models.SafeSecret `json:"roleSecrets"`
+	UpdateStoreChan chan *models.UpdateStoreAction
 	Logger          *zap.Logger
+	Mux             sync.Mutex
 }
 
 func NewServer() *Server {
@@ -29,8 +30,8 @@ func NewServer() *Server {
 		Stores:          make(map[string]*models.ServerStore),
 		Users:           []models.User{},
 		Roles:           []string{"root", "admin", "user"},
-		RoleSecrets:     make(map[string]map[string]models.Secret),
-		ACL:             make(map[string]map[string]models.Secret),
+		RoleSecrets:     make(map[string]map[string]*models.SafeSecret),
+		UpdateStoreChan: make(chan *models.UpdateStoreAction),
 		Logger:          lo,
 	}
 }

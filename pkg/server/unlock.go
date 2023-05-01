@@ -5,6 +5,7 @@ import (
 	"custodyEthereum/pkg/encryptedStore"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/awnumar/memguard"
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/vault/shamir"
 	"go.uber.org/zap"
@@ -60,13 +61,28 @@ func (s *Server) Unlock(reload bool) gin.HandlerFunc {
 		var usableKey [models.KeySize]byte
 		copy(usableKey[:], recoveredKey)
 
+		memguard.WipeBytes(recoveredKey)
+
 		store, err := encryptedStore.OpenBoxStore(req.StoreName, usableKey)
 
 		log.Println("Decrypted Store: ", store.ID)
 
+		if reload {
+			s.removeStoreFromServer(s.Stores[req.StoreName])
+		}
+
 		_ = s.importStoreWithACL(store, usableKey)
+
+		memguard.WipeBytes(usableKey[:])
 
 		c.JSON(200, gin.H{"message": "Store unlocked successfully", "store": store.ID})
 		return
+	}
+}
+
+func (s *Server) UpdateStore(storeName string, override bool) {
+	s.UpdateStoreChan <- &models.UpdateStoreAction{
+		StoreName: storeName,
+		Override:  override,
 	}
 }

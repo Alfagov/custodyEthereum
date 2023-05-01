@@ -25,6 +25,25 @@ func JwtAuthMiddleware(roles []string) gin.HandlerFunc {
 	}
 }
 
+func JwtAuthGetRoleMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.AbortWithStatusJSON(401, gin.H{"message": "No Authorization Header"})
+			return
+		}
+
+		_, role, err := ValidateAccessToken(authHeader)
+		if err != nil {
+			c.AbortWithStatusJSON(401, gin.H{"message": err.Error()})
+			return
+		}
+
+		c.Set("role", role)
+		c.Next()
+	}
+}
+
 func containsRole(roles []string, role string) bool {
 	for _, r := range roles {
 		if r == role {

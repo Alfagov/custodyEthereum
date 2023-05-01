@@ -1,6 +1,9 @@
 package models
 
-import "github.com/awnumar/memguard"
+import (
+	"github.com/awnumar/memguard"
+	"sync"
+)
 
 const (
 	KeySize   = 32
@@ -20,31 +23,54 @@ type Secret struct {
 }
 
 type SafeSecret struct {
-	ID          string                 `json:"id"`
-	Description string                 `json:"description"`
-	Data        *memguard.LockedBuffer `json:"data"`
-	Roles       []string               `json:"roles"`
+	Path        string            `json:"id"`
+	Description string            `json:"description"`
+	Data        *memguard.Enclave `json:"data"`
+	Roles       []string          `json:"roles"`
 }
 
 type StoreEntry struct {
-	ID          string   `json:"id"`
-	Secrets     []Secret `json:"secrets"`
-	Description string   `json:"description"`
+	ID             string    `json:"id"`
+	Secrets        []*Secret `json:"secrets"`
+	Description    string    `json:"description"`
+	SecretPathList []string  `json:"secretPathList"`
 }
 
 type SafeStoreEntry struct {
-	ID          string       `json:"id"`
-	Secrets     []SafeSecret `json:"secrets"`
-	Description string       `json:"description"`
+	ID             string        `json:"id"`
+	Secrets        []*SafeSecret `json:"secrets"`
+	Description    string        `json:"description"`
+	SecretPathList []string      `json:"secretPathList"`
 }
 
 type ServerStore struct {
-	Store         StoreEntry `json:"store"`
-	Key           [KeySize]byte
-	SafeKey       *memguard.LockedBuffer
+	Store         *SafeStoreEntry `json:"store"`
+	Path          string
+	SafeKey       *memguard.Enclave
 	ActionChannel chan *StoreAction
+	Roles         []string
+	Mux           sync.Mutex
 }
 
 type StoreAction struct {
-	Action string
+	Action      string
+	SecretPath  string
+	SecretData  *memguard.LockedBuffer
+	Description string
+	Role        string
+	Response    chan *SafeSecret
+}
+
+type ReqStoreAction struct {
+	Action       string   `json:"action"`
+	StoreName    string   `json:"storeName"`
+	SecretName   string   `json:"secretName"`
+	SecretData   string   `json:"secretData"`
+	Description  string   `json:"description"`
+	AllowedRoles []string `json:"allowedRoles"`
+}
+
+type UpdateStoreAction struct {
+	StoreName string `json:"storeName"`
+	Override  bool   `json:"override"`
 }

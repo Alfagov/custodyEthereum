@@ -6,6 +6,7 @@ import (
 	"custodyEthereum/pkg/encryptedStore"
 	"custodyEthereum/pkg/server"
 	"encoding/base64"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -106,26 +107,40 @@ func startCustodyServer() {
 
 		var textShares []string
 		for _, share := range shares {
-			textShares = append(textShares, base64.StdEncoding.EncodeToString(share))
+			sh, err := share.Open()
+			if err != nil {
+				log.Println(err)
+			}
+			textShares = append(textShares, base64.StdEncoding.EncodeToString(sh.Bytes()))
 		}
 
 		//Show credentials
-		log.Println("============================================================")
-		log.Println("Root token: " + rootToken)
-		log.Println("Default storage name: " + configs.GlobalViper.GetString("server.default-storage"))
+		fmt.Printf(strings.Repeat("=", 12) + "\n")
+		fmt.Printf("Store Name: %s\n", configs.GlobalViper.GetString("server.default-storage"))
+		fmt.Printf("Store Status: %s\n", "Locked")
+		fmt.Printf(strings.Repeat("*", 12) + "\n")
+		fmt.Printf("Root Token: %s\n", rootToken)
+		fmt.Printf(strings.Repeat("*", 12) + "\n")
+		fmt.Printf("Store Keys:\n")
+		fmt.Printf("%-12s %-20s\n", "Share", "Key")
 		for i, share := range textShares {
-			log.Println("Share " + strconv.Itoa(i) + ": " + share)
+			fmt.Printf("%-12s %-20s\n", "Share "+strconv.Itoa(i), share)
 		}
-		log.Println("============================================================")
+		fmt.Printf(strings.Repeat("=", 12) + "\n")
+
+		rootToken = ""
+		textShares = nil
 	}
 
 	r := gin.Default()
 
 	r.GET("initialize", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.NewStore())
 
-	r.POST("unlock", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.Unlock(false))
-	r.POST("reloadStore", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.Unlock(true))
-	r.POST("addSecret", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.AddSecret())
+	r.POST("unlock", jwtHelper.JwtAuthGetRoleMiddleware(), s.Unlock(false))
+	r.POST("reloadStore", jwtHelper.JwtAuthGetRoleMiddleware(), s.Unlock(true))
+	r.POST("addSecret", jwtHelper.JwtAuthGetRoleMiddleware(), s.AddSecret())
+	r.POST("remSecret", jwtHelper.JwtAuthGetRoleMiddleware(), s.RemoveSecret())
+	r.POST("updSecret", jwtHelper.JwtAuthGetRoleMiddleware(), s.UpdateSecret())
 
 	//r.POST("sign", jwtHelper.JwtAuthMiddleware([]string{"root"}), s.Sign)
 	err = r.Run(":8080")
